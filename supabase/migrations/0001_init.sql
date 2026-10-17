@@ -1,5 +1,8 @@
 create extension if not exists pgcrypto;
 
+-- Hosted Supabase installs pgcrypto in extensions; local databases may use public.
+set local search_path = public, extensions;
+
 create table partners (
   id uuid primary key default gen_random_uuid(),
   name text not null,

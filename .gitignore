@@ -24,6 +24,9 @@ coverage/
 # vercel
 .vercel
 
+# Supabase CLI project metadata and temporary credentials
+supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
