@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+import { DEMO_API_KEY } from '../lib/env';
 import type {
   ActorGrant,
   BookingOptions,
@@ -23,11 +24,7 @@ import type {
 config({ path: '.env.local', quiet: true });
 
 const BASE = process.env.BASE_URL || 'http://localhost:3001';
-const KEY = process.env.API_KEY;
-if (!KEY) {
-  console.error('API_KEY is missing in .env.local');
-  process.exit(1);
-}
+const KEY = process.env.API_KEY || DEMO_API_KEY;
 
 const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
