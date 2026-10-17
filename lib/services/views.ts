@@ -25,16 +25,22 @@ export async function taskViews(tasks: TaskRow[], names?: NameMap): Promise<Task
   return tasks.map((t) => mapTask(t, map, now));
 }
 
-export async function bookingViews(bookings: BookingRow[]): Promise<Booking[]> {
+interface BookingInputs {
+  members: MemberRow[];
+  tasks: TaskRow[];
+  visits: VisitRow[];
+}
+
+export async function bookingViews(bookings: BookingRow[], inputs?: BookingInputs): Promise<Booking[]> {
   if (bookings.length === 0) return [];
   const ids = bookings.map((b) => b.id);
   const homeIds = [...new Set(bookings.map((b) => b.home_id))];
   const taskIds = bookings.map((b) => b.task_id).filter((id): id is string => !!id);
   const [partners, members, tasks, visits] = await Promise.all([
     rows<PartnerRow>(db().from('partners').select('*').in('id', [...new Set(bookings.map((b) => b.partner_id))])),
-    rows<MemberRow>(db().from('members').select('*').in('home_id', homeIds)),
-    taskIds.length ? rows<Pick<TaskRow, 'id' | 'title'>>(db().from('tasks').select('id,title').in('id', taskIds)) : [],
-    rows<Pick<VisitRow, 'id' | 'booking_id'>>(db().from('visits').select('id,booking_id').in('booking_id', ids)),
+    inputs?.members ?? rows<MemberRow>(db().from('members').select('*').in('home_id', homeIds)),
+    inputs?.tasks ?? (taskIds.length ? rows<Pick<TaskRow, 'id' | 'title'>>(db().from('tasks').select('id,title').in('id', taskIds)) : []),
+    inputs?.visits ?? rows<Pick<VisitRow, 'id' | 'booking_id'>>(db().from('visits').select('id,booking_id').in('booking_id', ids)),
   ]);
   const names = nameMap(members);
   return bookings.map((b) => {
@@ -55,14 +61,20 @@ export async function bookingView(booking: BookingRow): Promise<Booking> {
 }
 
 /** Full visits with signed photo URLs, the tasks they closed and the follow-ups they created. */
-export async function visitViews(visits: VisitRow[]): Promise<Visit[]> {
+interface VisitInputs {
+  photos: PhotoRow[];
+  tasks: TaskRow[];
+  names: NameMap;
+}
+
+export async function visitViews(visits: VisitRow[], inputs?: VisitInputs): Promise<Visit[]> {
   if (visits.length === 0) return [];
   const ids = visits.map((v) => v.id);
   const [photos, completed, followUps, names] = await Promise.all([
-    rows<PhotoRow>(db().from('photos').select('*').in('visit_id', ids).order('created_at')),
-    rows<TaskRow>(db().from('tasks').select('*').in('completed_by_visit_id', ids).order('created_at')),
-    rows<TaskRow>(db().from('tasks').select('*').in('source_visit_id', ids).order('created_at')),
-    namesFor(visits[0].home_id),
+    inputs?.photos ?? rows<PhotoRow>(db().from('photos').select('*').in('visit_id', ids).order('created_at')),
+    inputs ? inputs.tasks.filter((t) => t.completed_by_visit_id && ids.includes(t.completed_by_visit_id)) : rows<TaskRow>(db().from('tasks').select('*').in('completed_by_visit_id', ids).order('created_at')),
+    inputs ? inputs.tasks.filter((t) => t.source_visit_id && ids.includes(t.source_visit_id)) : rows<TaskRow>(db().from('tasks').select('*').in('source_visit_id', ids).order('created_at')),
+    inputs?.names ?? namesFor(visits[0].home_id),
   ]);
   const urls = await signPaths(photos.map((p) => p.storage_path));
   const now = Date.now();
