@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { resolveActor, type Actor } from './auth';
 import { env } from './env';
 import { ApiError } from './errors';
+import { ensureSeeded } from './seed';
 
 export { ApiError, forbidden, invalidState, notFound } from './errors';
 
@@ -77,6 +78,7 @@ export function route<A = undefined, B = undefined, Q = undefined>(
       if (!keyMatches(req.headers.get('authorization'))) {
         throw new ApiError(401, 'unauthorized', 'A valid API key is required');
       }
+      await ensureSeeded();
       const params = await context.params;
       let actor: Actor | null = null;
       if (opts.actor !== 'none') {

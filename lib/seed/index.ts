@@ -1,5 +1,6 @@
 import { exec, rows } from '../db';
-import { PHOTO_BUCKET, db } from '../supabase';
+import { store } from '../memory-db';
+import { PHOTO_BUCKET, db, usesMemoryStore } from '../supabase';
 import { buildSeed } from './data';
 import { uploadPlaceholder } from './placeholders';
 
@@ -56,4 +57,17 @@ export async function resetAndSeed(): Promise<{ ok: true; inviteUrl: string }> {
 
   console.log(`Seeded ${s.homes.length} homes, ${s.tasks.length} tasks, ${s.visits.length} visits in ${Date.now() - started} ms`);
   return { ok: true, inviteUrl: '/invite/demo-virtanen' };
+}
+
+/** The in-memory store starts empty: seed it once per server process, before the first request is handled. */
+export async function ensureSeeded(): Promise<void> {
+  if (!usesMemoryStore()) return;
+  store.ready ??= resetAndSeed().then(
+    () => undefined,
+    (err) => {
+      store.ready = null;
+      throw err;
+    },
+  );
+  await store.ready;
 }
