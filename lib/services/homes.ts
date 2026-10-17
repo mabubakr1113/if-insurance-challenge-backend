@@ -186,16 +186,17 @@ export async function transitionHome({ home, me }: HomeAccess, body: TransitionB
 /* ---------------- dashboard ---------------- */
 
 export async function dashboard({ home, me }: HomeAccess): Promise<Dashboard> {
-  // Weather first: a refetch can run the rules, which may add or escalate tasks shown below.
-  const weather = await getWeather(home);
-  const [members, taskRows, visits, notes, bookings, recentActivity] = await Promise.all([
+  // Other reads can overlap weather refreshes. Tasks and activity are read afterwards because
+  // weather rules may change them; include those changes in the current response.
+  const [weather, members, visits, notes, bookings, photoRows] = await Promise.all([
+    getWeather(home),
     allMembers(home.id),
-    homeTaskRows(home.id),
     rows<VisitRow>(db().from('visits').select('*').eq('home_id', home.id)),
     homeNoteRows(home.id),
     rows<BookingRow>(db().from('bookings').select('*').eq('home_id', home.id).order('created_at', { ascending: false })),
-    listActivity(home.id, 8),
+    rows<{ note_id: string }>(db().from('photos').select('note_id').eq('home_id', home.id).not('note_id', 'is', null)),
   ]);
+  const [taskRows, recentActivity] = await Promise.all([homeTaskRows(home.id), listActivity(home.id, 8)]);
   const names = nameMap(members);
   const tasks = await taskViews(taskRows, names);
   const active = tasks.filter(isActive);
@@ -214,9 +215,6 @@ export async function dashboard({ home, me }: HomeAccess): Promise<Dashboard> {
       .filter((t) => t.templateKey === 'monthly_visit' || t.templateKey === 'first_walkthrough')
       .sort((a, b) => (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999'))[0] ?? null;
 
-  const photoRows = notes.length
-    ? await rows<{ note_id: string }>(db().from('photos').select('note_id').in('note_id', notes.map((n) => n.id)))
-    : [];
   const photoCount = new Map<string, number>();
   for (const p of photoRows) photoCount.set(p.note_id, (photoCount.get(p.note_id) ?? 0) + 1);
 

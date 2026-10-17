@@ -74,4 +74,14 @@ For an explicitly temporary local demo only, `DATA_STORE=memory` enables the opt
 
    The CLI tracks hosted migrations in `supabase_migrations`. The local `npm run db:migrate` script uses its own `_migrations` table; use one migration runner consistently for each database. `db:seed` resets the demo data, so run it only against the dedicated demo project.
 2. `vercel link --yes`, then add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `API_KEY` and `APP_TIMEZONE` with `vercel env add <NAME> production`.
-3. `vercel deploy --prod`. Functions run in `arn1` (Stockholm), next to an EU North Supabase project.
+3. `vercel deploy --prod`. Functions run in `dub1` (Dublin), near the hosted Supabase database in `eu-west-1`. The frontend uses the same region to avoid server-to-server requests crossing the Atlantic.
+
+## Measuring latency
+
+`npm run benchmark` makes five read-only requests to each of the main API endpoints and reports the samples and median. It does not reset the demo. To measure the deployed apps together:
+
+```bash
+BASE_URL=https://YOUR-BACKEND.vercel.app FRONTEND_URL=https://YOUR-FRONTEND.vercel.app npm run benchmark
+```
+
+`/api/me` resolves membership and its home in one database query and reads independent information concurrently. Dashboard and record builders reuse data already loaded in the request. Permissions and application data are still checked afresh on every request.

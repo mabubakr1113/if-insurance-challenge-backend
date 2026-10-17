@@ -15,7 +15,7 @@ import {
 } from './db';
 import { ApiError, forbidden, notFound } from './errors';
 import { logActivity } from './services/activity';
-import { db } from './supabase';
+import { db, usesMemoryStore } from './supabase';
 import { firstName } from './time';
 
 export const STAFF_LABEL = 'If pilot team';
@@ -53,10 +53,17 @@ export async function resolveActor(header: string | null): Promise<Actor | null>
     return partner ? { kind: 'partner', partner, label: partner.name } : null;
   }
 
-  const member = await loadById<MemberRow>('members', match[2]);
+  // Resolve membership and its home in one database round trip. Keep permissions request-local:
+  // a removed member or a changed role must take effect on the very next request.
+  const joined = usesMemoryStore()
+    ? null
+    : await row<MemberRow & { home: HomeRow | null }>(
+        db().from('members').select('*,home:homes!members_home_id_fkey(*)').eq('id', match[2]).maybeSingle(),
+      );
+  const member = usesMemoryStore() ? await loadById<MemberRow>('members', match[2]) : joined;
   if (!member) return null;
   if (member.status === 'removed') throw new ApiError(403, 'removed', 'You are no longer part of this home');
-  const home = await loadHome(member.home_id);
+  const home = usesMemoryStore() ? await loadHome(member.home_id) : joined?.home;
   if (!home) return null;
   if (member.status === 'invited') {
     const joinedAt = new Date().toISOString();
