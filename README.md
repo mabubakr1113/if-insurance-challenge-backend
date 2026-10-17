@@ -32,3 +32,46 @@ It must also have a credible business case for If: retention, acquisition, risk 
 - Public APIs, statistics and datasets
 
 No customer-specific or confidential insurance data is required.
+
+## Running locally
+
+The API runs on http://localhost:3001 and needs a Supabase database and storage. Either create a Supabase project, or run Supabase locally in Docker:
+
+```bash
+# in any folder outside this repo
+npx supabase init --yes
+npx supabase start -x gotrue,realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+npx supabase status          # API URL → SUPABASE_URL, secret key → SUPABASE_SECRET_KEY, DB URL → SUPABASE_DB_URL
+```
+
+Then, in this repo:
+
+```bash
+npm install
+cp .env.example .env.local   # fill in the Supabase values and a random API_KEY (32+ characters)
+npm run db:migrate           # applies supabase/migrations
+npm run db:seed              # resets and seeds the demo data, prints the invitation link
+npm run dev                  # http://localhost:3001
+npm run smoke                # end-to-end check against the running API
+```
+
+The frontend uses the same `API_KEY` as its `BACKEND_API_KEY`. `npm run db:seed` and the frontend's "Reset all demo data" both put the demo back to its starting state.
+
+Supabase is the default data store for the shared participant demo. No Supabase Auth signup or login is needed: the frontend's `/demo/start` uses `GET /api/demo/entry` to select the existing example-home coordinator. The endpoint still requires the server-to-server API key and does not create accounts or reset data. Tasks, visits, bookings, photos and role permissions continue through the backend as usual.
+
+For an explicitly temporary local demo only, `DATA_STORE=memory` enables the optional in-memory store. It resets on a server restart. Missing Supabase settings do not silently switch the shared demo to memory.
+
+## Deploying to Vercel
+
+1. Create a Supabase project and configure its `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in `.env.local`. With the CLI, no database password is needed:
+
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref YOUR_PROJECT_REF
+   npx supabase db push --linked
+   npm run db:seed
+   ```
+
+   The CLI tracks hosted migrations in `supabase_migrations`. The local `npm run db:migrate` script uses its own `_migrations` table; use one migration runner consistently for each database. `db:seed` resets the demo data, so run it only against the dedicated demo project.
+2. `vercel link --yes`, then add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `API_KEY` and `APP_TIMEZONE` with `vercel env add <NAME> production`.
+3. `vercel deploy --prod`. Functions run in `arn1` (Stockholm), next to an EU North Supabase project.

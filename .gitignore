@@ -1,15 +1,39 @@
+# dependencies
 node_modules/
+/.pnp
+.pnp.*
+
+# python (from the original repo template)
 __pycache__/
 *.pyc
 .venv/
 venv/
+
+# builds
+/.next/
+/out/
 dist/
 build/
+coverage/
+
+# env files
 .env
 .env.*
 !.env.example
+
+# vercel
+.vercel
+
+# Supabase CLI project metadata and temporary credentials
+supabase/.temp/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
 .DS_Store
+*.pem
 *.log
-coverage/
 .vscode/
 .idea/
