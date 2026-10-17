@@ -1,4 +1,4 @@
-import type { DemoState, Persona, PersonasResponse } from '@/lib/contract';
+import type { ActorGrant, DemoState, Persona, PersonasResponse } from '@/lib/contract';
 import { STAFF_LABEL } from '@/lib/auth';
 import { RELATION_LABELS, ROLE_LABELS } from '@/lib/catalog';
 import { notFound } from '@/lib/errors';
@@ -13,6 +13,17 @@ async function demoHome(group: 'main' | 'example'): Promise<HomeRow> {
   const home = await row<HomeRow>(db().from('homes').select('*').eq('demo_group', group).limit(1).maybeSingle());
   if (!home) throw notFound(`Demo ${group} home (run the seed or reset the demo)`);
   return home;
+}
+
+/** Public demo entry: use an existing coordinator without creating an account or resetting shared data. */
+export async function demoEntry(): Promise<ActorGrant> {
+  const home = await demoHome('example');
+  const member = await row<MemberRow>(
+    db().from('members').select('*').eq('home_id', home.id).eq('role', 'coordinator').eq('status', 'joined')
+      .order('created_at').limit(1).maybeSingle(),
+  );
+  if (!member) throw notFound('Demo coordinator (run the seed or reset the demo)');
+  return { homeId: home.id, memberId: member.id, actor: `member:${member.id}` };
 }
 
 async function memberPersonas(home: HomeRow): Promise<Persona[]> {

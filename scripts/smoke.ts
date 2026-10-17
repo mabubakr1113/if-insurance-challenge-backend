@@ -11,6 +11,7 @@ import type {
   Insights,
   InviteView,
   Member,
+  MeResponse,
   Note,
   NotificationsResponse,
   PartnerJob,
@@ -114,6 +115,20 @@ async function main() {
   await step('4. GET /api/invites/demo-virtanen: invited', async () => {
     const invite = await ok<InviteView>('GET', '/api/invites/demo-virtanen');
     expect(invite.status === 'invited', `status is ${invite.status}`);
+  });
+
+  await step('Account-free demo entry selects an existing coordinator and retains API-key protection', async () => {
+    const before = await ok<PersonasResponse>('GET', '/api/demo/personas');
+    const grant = await ok<ActorGrant>('GET', '/api/demo/entry');
+    expect(grant.homeId === exampleHomeId, 'entry must open the populated example home');
+    const me = await ok<MeResponse>('GET', '/api/me', { actor: grant.actor });
+    expect(me.kind === 'member' && me.member.role === 'coordinator' && me.member.status === 'joined', 'entry must select a joined coordinator');
+    const again = await ok<ActorGrant>('GET', '/api/demo/entry', { actor: partnerActor });
+    expect(again.actor === grant.actor, 'entry should select the same existing person');
+    const after = await ok<PersonasResponse>('GET', '/api/demo/personas');
+    expect(JSON.stringify(before) === JSON.stringify(after), 'entry must not create accounts or reset the demo');
+    const denied = await call('GET', '/api/demo/entry', { key: null });
+    expect(denied.status === 401, 'backend must still require its server-to-server key');
   });
 
   await step('5. Accept the invitation as Aino', async () => {
