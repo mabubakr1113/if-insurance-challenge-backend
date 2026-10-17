@@ -32,3 +32,33 @@ It must also have a credible business case for If: retention, acquisition, risk 
 - Public APIs, statistics and datasets
 
 No customer-specific or confidential insurance data is required.
+
+## Running locally
+
+The API runs on http://localhost:3001 and needs a Supabase database and storage. Either create a Supabase project, or run Supabase locally in Docker:
+
+```bash
+# in any folder outside this repo
+npx supabase init --yes
+npx supabase start -x gotrue,realtime,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+npx supabase status          # API URL → SUPABASE_URL, secret key → SUPABASE_SECRET_KEY, DB URL → SUPABASE_DB_URL
+```
+
+Then, in this repo:
+
+```bash
+npm install
+cp .env.example .env.local   # fill in the Supabase values and a random API_KEY (32+ characters)
+npm run db:migrate           # applies supabase/migrations
+npm run db:seed              # resets and seeds the demo data, prints the invitation link
+npm run dev                  # http://localhost:3001
+npm run smoke                # end-to-end check against the running API
+```
+
+The frontend uses the same `API_KEY` as its `BACKEND_API_KEY`. `npm run db:seed` and the frontend's "Reset all demo data" both put the demo back to its starting state.
+
+## Deploying to Vercel
+
+1. Create a Supabase project and run `npm run db:migrate` and `npm run db:seed` against it (put its values in `.env.local` first).
+2. `vercel link --yes`, then add `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `API_KEY` and `APP_TIMEZONE` with `vercel env add <NAME> production`.
+3. `vercel deploy --prod`. Functions run in `arn1` (Stockholm), next to an EU North Supabase project.
